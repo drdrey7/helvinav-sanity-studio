@@ -1,0 +1,21 @@
+{
+  "name": "helvinav-sanity-studio",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "sanity dev",
+    "build": "sanity build",
+    "deploy": "sanity deploy",
+    "typecheck": "sanity schema validate"
+  },
+  "dependencies": {
+    "react": "^19.2.2",
+    "react-dom": "^19.2.2",
+    "sanity": "^3.67.0",
+    "styled-components": "^6.4.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
