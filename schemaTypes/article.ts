@@ -296,18 +296,73 @@ export const article = defineType({
       type: "string",
       initialValue: authorDefaults.authorDisplayName,
     }),
+    // ═══════════════════════════════════════════════════════════════════
+    // ⚠️  authorSlug migration note
+    // ───────────────────────────────────────────────────────────────────
+    // Existing test articles may still store authorSlug as the old slug
+    // object shape. These old test articles will be deleted or manually
+    // recreated. The main HelviNav app keeps temporary defensive parsing
+    // for both shapes during rollout. New articles created after the
+    // Studio deploy will use authorSlug as a reusable string.
+    // ═══════════════════════════════════════════════════════════════════
     defineField({
       name: "authorSlug",
       title: "Author slug",
-      type: "slug",
-      options: { source: "authorDisplayName", maxLength: 96 },
-      initialValue: { current: authorDefaults.authorSlug },
+      type: "string",
+      initialValue: authorDefaults.authorSlug,
+      validation: (Rule) =>
+        Rule.custom((value: string | undefined) => {
+          if (!value) {
+            return true;
+          }
+          if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value)) {
+            return "Author slug must use lowercase letters, numbers and hyphens only";
+          }
+          return true;
+        }),
     }),
     defineField({
       name: "readingTimeMinutes",
       title: "Reading time (minutes)",
       type: "number",
       validation: (Rule) => Rule.integer().min(1),
+    }),
+
+    defineField({
+      name: "featured",
+      title: "Featured article",
+      type: "boolean",
+      initialValue: false,
+      description: "Show this article in Popular guides sections.",
+    }),
+    defineField({
+      name: "featuredRank",
+      title: "Featured rank",
+      type: "number",
+      description: "Lower numbers appear first. Used when Featured article is enabled.",
+      validation: (Rule) => [
+        // Blocking validation: when featured is enabled, rank is required and must be integer >= 1
+        Rule.custom((value: number | undefined, context: { document?: { featured?: boolean } }) => {
+          const isFeatured = context.document?.featured;
+          if (isFeatured) {
+            if (value === undefined || value === null) {
+              return "Featured rank is required when featured is enabled";
+            }
+            if (!Number.isInteger(value) || value < 1) {
+              return "Featured rank must be a positive integer";
+            }
+          }
+          return true;
+        }),
+        // Non-blocking warning: rank has a value but featured is not enabled
+        Rule.custom((value: number | undefined, context: { document?: { featured?: boolean } }) => {
+          const isFeatured = context.document?.featured;
+          if (!isFeatured && value !== undefined && value !== null) {
+            return "Featured rank is only used when Featured article is enabled";
+          }
+          return true;
+        }).warning(),
+      ],
     }),
 
     defineField({
@@ -332,6 +387,8 @@ export const article = defineType({
       published: "published",
       authorDisplayName: "authorDisplayName",
       coverImage: "coverImage",
+      featured: "featured",
+      featuredRank: "featuredRank",
     },
     prepare(selection: {
       title?: string;
@@ -340,15 +397,22 @@ export const article = defineType({
       published?: boolean;
       authorDisplayName?: string;
       coverImage?: { asset?: unknown; alt?: string };
+      featured?: boolean;
+      featuredRank?: number;
     }) {
       const status = selection.published ? "Published" : "Draft";
       const language = getOptionLabel(languageOptions, selection.language);
       const category = getOptionLabel(categoryOptions, selection.category);
       const author = selection.authorDisplayName || authorDefaults.authorDisplayName;
+      const featured = selection.featured
+        ? selection.featuredRank
+          ? `Featured #${selection.featuredRank}`
+          : "Featured"
+        : null;
 
       return {
         title: selection.title || "Untitled article",
-        subtitle: [language, category, status, author].filter(Boolean).join(" • "),
+        subtitle: [language, category, status, featured, author].filter(Boolean).join(" • "),
         media: selection.coverImage,
       };
     },
