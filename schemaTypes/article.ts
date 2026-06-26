@@ -127,8 +127,48 @@ const bodyBlocks = {
           defineField({
             name: "href",
             title: "URL",
-            type: "url",
-            validation: (Rule) => Rule.required(),
+            type: "string",
+            validation: (Rule) =>
+              Rule.required().custom((value: unknown) => {
+                if (typeof value !== "string" || !value.trim()) {
+                  return true;
+                }
+
+                const url = value.trim();
+                const forbiddenSchemes = ["javascript:", "data:", "vbscript:"];
+                const hasForbiddenScheme = forbiddenSchemes.some((scheme) =>
+                  url.toLowerCase().startsWith(scheme),
+                );
+
+                if (hasForbiddenScheme) {
+                  return "This URL scheme is not allowed";
+                }
+
+                if (url.startsWith("//")) {
+                  return "Protocol-relative URLs are not allowed; use http:// or https:// for external links, or a root-relative path for internal links";
+                }
+
+                if (url.startsWith("/")) {
+                  return true;
+                }
+
+                try {
+                  const parsed = new URL(url);
+                  if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+                    return true;
+                  }
+                } catch {
+                  return "Invalid URL. Use an absolute http:// or https:// URL, or a root-relative path starting with /";
+                }
+
+                return "Invalid URL. Use an absolute http:// or https:// URL, or a root-relative path starting with /";
+              }),
+          }),
+          defineField({
+            name: "blank",
+            title: "Open in new tab",
+            type: "boolean",
+            initialValue: false,
           }),
         ],
       },
@@ -203,6 +243,20 @@ export const article = defineType({
           validation: requiredAltTextValidation,
         }),
       ],
+      validation: (Rule) =>
+        Rule.custom((value: unknown, context: { document?: { published?: boolean } }) => {
+          if (
+            context.document?.published &&
+            (!value ||
+              typeof value !== "object" ||
+              !("asset" in (value as object)) ||
+              !(value as { asset?: unknown }).asset)
+          ) {
+            return "Cover image is required when the article is published";
+          }
+
+          return true;
+        }),
     }),
     defineField({
       name: "body",
@@ -255,13 +309,7 @@ export const article = defineType({
       type: "number",
       validation: (Rule) => Rule.integer().min(1),
     }),
-    defineField({
-      name: "researchNotes",
-      title: "Research notes",
-      type: "text",
-      rows: 6,
-      description: "Internal editorial notes for research and source tracking.",
-    }),
+
     defineField({
       name: "seoTitle",
       title: "SEO title",
