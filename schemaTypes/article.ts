@@ -299,17 +299,11 @@ export const article = defineType({
     // ═══════════════════════════════════════════════════════════════════
     // ⚠️  authorSlug migration note
     // ───────────────────────────────────────────────────────────────────
-    // Existing documents in the Sanity Content Lake still store authorSlug
-    // as a slug object ({ current: "andre" }) because they were created
-    // before this PR changed the field type from "slug" to "string".
-    //
-    // The main HelviNav app must handle both shapes during the transition:
-    //   string         → "andre"
-    //   object (legacy) → { current: "andre" }
-    //
-    // After this Studio deploy, existing article drafts can be manually
-    // opened and re-saved — the initialValue will persist the new string.
-    // No automatic Content Lake migration is performed by this PR.
+    // Existing test articles may still store authorSlug as the old slug
+    // object shape. These old test articles will be deleted or manually
+    // recreated. The main HelviNav app keeps temporary defensive parsing
+    // for both shapes during rollout. New articles created after the
+    // Studio deploy will use authorSlug as a reusable string.
     // ═══════════════════════════════════════════════════════════════════
     defineField({
       name: "authorSlug",
