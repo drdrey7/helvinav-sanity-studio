@@ -296,6 +296,21 @@ export const article = defineType({
       type: "string",
       initialValue: authorDefaults.authorDisplayName,
     }),
+    // ═══════════════════════════════════════════════════════════════════
+    // ⚠️  authorSlug migration note
+    // ───────────────────────────────────────────────────────────────────
+    // Existing documents in the Sanity Content Lake still store authorSlug
+    // as a slug object ({ current: "andre" }) because they were created
+    // before this PR changed the field type from "slug" to "string".
+    //
+    // The main HelviNav app must handle both shapes during the transition:
+    //   string         → "andre"
+    //   object (legacy) → { current: "andre" }
+    //
+    // After this Studio deploy, existing article drafts can be manually
+    // opened and re-saved — the initialValue will persist the new string.
+    // No automatic Content Lake migration is performed by this PR.
+    // ═══════════════════════════════════════════════════════════════════
     defineField({
       name: "authorSlug",
       title: "Author slug",
@@ -331,7 +346,8 @@ export const article = defineType({
       title: "Featured rank",
       type: "number",
       description: "Lower numbers appear first. Used when Featured article is enabled.",
-      validation: (Rule) =>
+      validation: (Rule) => [
+        // Blocking validation: when featured is enabled, rank is required and must be integer >= 1
         Rule.custom((value: number | undefined, context: { document?: { featured?: boolean } }) => {
           const isFeatured = context.document?.featured;
           if (isFeatured) {
@@ -341,16 +357,18 @@ export const article = defineType({
             if (!Number.isInteger(value) || value < 1) {
               return "Featured rank must be a positive integer";
             }
-            return true;
-          }
-          if (value !== undefined && value !== null) {
-            return {
-              message: "Featured rank is only used when Featured article is enabled",
-              level: "warning" as const,
-            };
           }
           return true;
         }),
+        // Non-blocking warning: rank has a value but featured is not enabled
+        Rule.custom((value: number | undefined, context: { document?: { featured?: boolean } }) => {
+          const isFeatured = context.document?.featured;
+          if (!isFeatured && value !== undefined && value !== null) {
+            return "Featured rank is only used when Featured article is enabled";
+          }
+          return true;
+        }).warning(),
+      ],
     }),
 
     defineField({
