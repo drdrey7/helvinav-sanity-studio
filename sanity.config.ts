@@ -1,5 +1,5 @@
 import { defineConfig } from "sanity";
-import { deskTool } from "sanity/desk";
+import { structureTool } from "sanity/structure";
 import { schemaTypes } from "./schemaTypes";
 
 export default defineConfig({
@@ -7,7 +7,20 @@ export default defineConfig({
   title: "HelviNav Content Studio",
   projectId: "kltpvgen",
   dataset: "production",
-  plugins: [deskTool()],
+  plugins: [
+    structureTool({
+      title: "Articles",
+      structure: (S) =>
+        S.documentTypeList("article")
+          .title("Articles")
+          .defaultOrdering([
+            { field: "language", direction: "asc" },
+            { field: "category", direction: "asc" },
+            { field: "published", direction: "desc" },
+            { field: "title", direction: "asc" },
+          ]),
+    }),
+  ],
   schema: {
     types: schemaTypes,
   },
